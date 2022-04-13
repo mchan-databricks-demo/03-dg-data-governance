@@ -5,6 +5,11 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC https://docs.greatexpectations.io/docs/deployment_patterns/how_to_use_great_expectations_in_databricks/
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC #### Examples of Data Quality checks, or "expectations" you can perform
 # MAGIC ---
 # MAGIC 
