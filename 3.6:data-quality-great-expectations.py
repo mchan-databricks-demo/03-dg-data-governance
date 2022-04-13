@@ -133,7 +133,7 @@ print(validator.head())
 # COMMAND ----------
 
 # MAGIC %md 
-# MAGIC ### Step 4. Make Data Quality Checks 
+# MAGIC ### Step 4. Make Data Quality Checks a.k.a "Expectations"
 # MAGIC ---
 # MAGIC - Expectation 1: ```passenger_count``` should not be NULL 
 # MAGIC - Expectation 2: range of values for Taxi fares to be between ```$1``` and ```$1000```
@@ -150,6 +150,10 @@ validator.expect_column_values_to_not_be_null(column="passenger_count")
 validator.expect_column_values_to_be_between(
     column="total_amount", min_value = 0, max_value = 1000
 )
+
+# COMMAND ----------
+
+validator.save_expectation_suite(discard_failed_expectations =False)
 
 # COMMAND ----------
 
