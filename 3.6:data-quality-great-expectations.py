@@ -5,7 +5,18 @@
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC <img src="https://mchanstorage2.blob.core.windows.net/mchan-images/Screenshot 2022-04-13 at 11.38.29 PM.png" width="1000"> 
+# MAGIC #### Examples of Data Quality checks, or "expectations" you can perform
+# MAGIC ---
+# MAGIC 
+# MAGIC <img src="https://mchanstorage2.blob.core.windows.net/mchan-images/Screenshot 2022-04-13 at 11.38.29 PM.png" width="800"> 
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC #### Examples of Data Quality checks, or "expectations" you can perform
+# MAGIC ---
+# MAGIC 
+# MAGIC <img src="https://mchanstorage2.blob.core.windows.net/mchan-images/expectations_01.png" width="900"> 
 
 # COMMAND ----------
 
