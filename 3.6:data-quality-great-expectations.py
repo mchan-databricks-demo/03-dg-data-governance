@@ -5,7 +5,17 @@
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC <img src="https://mchanstorage2.blob.core.windows.net/mchan-images/Screenshot 2022-04-13 at 11.38.29 PM.png" width="1000"> 
+
+# COMMAND ----------
+
+# MAGIC %md
 # MAGIC ### Step 1: Setup Great Expectations
+
+# COMMAND ----------
+
+import datetime as datetime 
+from pyspark.sql.functions import col
 
 # COMMAND ----------
 
@@ -14,8 +24,8 @@
 
 # COMMAND ----------
 
-# After that we will take care of some imports that will be used later. Choose your configuration options to show applicable imports:
 from ruamel import yaml
+
 from great_expectations.core.batch import BatchRequest
 from great_expectations.data_context import BaseDataContext
 from great_expectations.data_context.types.base import (
@@ -25,15 +35,13 @@ from great_expectations.data_context.types.base import (
 
 # COMMAND ----------
 
-# path to root where we store data for Metadata Stores 
-rootDirectory = "/mnt/mchan-great-expectations/ge-root-directory/"
-
+root_directory = "/dbfs/mnt/mchan-great-expectations/ge-root"
 data_context_config = DataContextConfig(
-    store_backend_defaults=FilesystemStoreBackendDefaults(
-        root_directory = rootDirectory
+    store_backend_defaults = FilesystemStoreBackendDefaults(
+        root_directory=root_directory
     ),
 )
-context = BaseDataContext(project_config=data_context_config)
+context = BaseDataContext(project_config = data_context_config)
 
 # COMMAND ----------
 
@@ -51,31 +59,109 @@ display(df)
 
 # COMMAND ----------
 
-datasource_yaml = r"""
-name: taxi_datasource
+my_spark_datasource_config = """
+name: nyc_taxi_trips
 class_name: Datasource
-module_name: great_expectations.datasource
 execution_engine:
-  module_name: great_expectations.execution_engine
-  class_name: PandasExecutionEngine
+  class_name: SparkDFExecutionEngine
 data_connectors:
-  default_inferred_data_connector_name:
-    class_name: InferredAssetDBFSDataConnector	
-    base_directory: /mnt/mchan-great-expectations/raw-data/
-    glob_directive: "*.csv"
-    default_regex:
-      group_names:
-        - data_asset_name
-        - year
-        - month
-      pattern: (.*)/.*(\d{4})-(\d{2})\.csv
+  insert_your_data_connector_name_here:
+    module_name: great_expectations.datasource.data_connector
+    class_name: RuntimeDataConnector
+    batch_identifiers:
+      - some_key_maybe_pipeline_stage
+      - some_other_key_maybe_run_id
 """
 
 # COMMAND ----------
 
-# Add the data source
-context.test_yaml_config(datasource_yaml)
+context.test_yaml_config(my_spark_datasource_config)
 
 # COMMAND ----------
 
+context.add_datasource(**yaml.load(my_spark_datasource_config))
 
+# COMMAND ----------
+
+batch_request = RuntimeBatchRequest(
+    datasource_name = "nyc_taxi_trips",
+    data_connector_name="insert_your_data_connector_name_here",
+    data_asset_name="df_great_expectations",  # This can be anything that identifies this data_asset for you
+    batch_identifiers={
+        "some_key_maybe_pipeline_stage": "prod",
+        "some_other_key_maybe_run_id": f"my_run_name_{datetime.date.today().strftime('%Y%m%d')}",
+    },
+    runtime_parameters={"batch_data": df},  # Your dataframe goes here
+)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Step 3. Create Expectations
+
+# COMMAND ----------
+
+# Define the expectation suite name
+expectation_suite_name = "mchan_great_expectation_suite"
+
+context.create_expectation_suite(
+    expectation_suite_name = expectation_suite_name, overwrite_existing=True
+)
+validator = context.get_validator(
+    batch_request = batch_request,
+    expectation_suite_name=expectation_suite_name,
+)
+
+print(validator.head())
+
+# COMMAND ----------
+
+# MAGIC %md 
+# MAGIC ### Step 4. Make Data Quality Checks 
+# MAGIC ---
+# MAGIC - Expectation 1: ```passenger_count``` should not be NULL 
+# MAGIC - Expectation 2: range of values for Taxi fares to be between ```$1``` and ```$1000```
+
+# COMMAND ----------
+
+# Test 1: Check the [passenger_count] column and check for the existence of NULL values 
+validator.expect_column_values_to_not_be_null(column="passenger_count")
+
+# COMMAND ----------
+
+# Test 2: Check the [total_amount] column if it's in between $0 and $1000
+# There were 23 records or taxi trips that violated this condition 
+validator.expect_column_values_to_be_between(
+    column="total_amount", min_value = 0, max_value = 1000
+)
+
+# COMMAND ----------
+
+my_checkpoint_name = "mchan_great_expectations_checkpoint" 
+
+my_checkpoint_config = f"""
+    name: {my_checkpoint_name}
+    config_version: 1.0
+    class_name: SimpleCheckpoint
+    run_name_template: "%Y%m%d-%H%M%S-data-quality-run"
+"""
+
+# COMMAND ----------
+
+my_checkpoint = context.test_yaml_config(my_checkpoint_config)
+
+# COMMAND ----------
+
+context.add_checkpoint(**yaml.load(my_checkpoint_config))
+
+# COMMAND ----------
+
+checkpoint_result = context.run_checkpoint(
+    checkpoint_name = "mchan_great_expectations_checkpoint",
+    validations=[
+        {
+            "batch_request": batch_request,
+            "expectation_suite_name": expectation_suite_name,
+        }
+    ],
+)
